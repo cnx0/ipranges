@@ -10,6 +10,7 @@ azure/ipv6_merged.txt
 backblaze/ipv6_merged.txt
 beeline/ipv6_merged.txt
 cachefly/ipv6_merged.txt
+claude/ipv6_merged.txt
 cloudflare/ipv6_merged.txt
 cogent/ipv6_merged.txt
 constant/ipv6_merged.txt

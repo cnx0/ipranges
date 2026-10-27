@@ -11,6 +11,7 @@ backblaze/ipv4_merged.txt
 beeline/ipv4_merged.txt
 bing/ipv4_merged.txt
 cachefly/ipv4_merged.txt
+claude/ipv4_merged.txt
 cloudflare/ipv4_merged.txt
 cogent/ipv4_merged.txt
 constant/ipv4_merged.txt
