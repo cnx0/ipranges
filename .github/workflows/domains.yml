@@ -32,8 +32,8 @@ jobs:
         env:
           AGH_DNS_TARGET: "172.19.0.2:53"
           AGH_DEFAULT_UPSTREAMS: |
-            77.88.8.8
-            1.1.1.1
+            https://cloudflare-dns.com/dns-query
+            https://dns.quad9.net/dns-query
         run: |
           set -euo pipefail
           SING_BOX_BIN="$PWD/sing-box" bash domains/build.sh 2>&1 | tee /tmp/build.log
