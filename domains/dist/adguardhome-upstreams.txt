@@ -1,5 +1,5 @@
-77.88.8.8
-1.1.1.1
+https://cloudflare-dns.com/dns-query
+https://dns.quad9.net/dns-query
 [/10minutemail.com/]172.19.0.2:53
 [/1337x.to/]172.19.0.2:53
 [/24.kg/]172.19.0.2:53
