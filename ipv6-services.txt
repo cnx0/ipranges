@@ -35,7 +35,6 @@ mullvad/ipv6_merged.txt
 nordvpn/ipv6_merged.txt
 ovh/ipv6_merged.txt
 ozonru/ipv6_merged.txt
-protonvpn/ipv6_merged.txt
 qrator/ipv6_merged.txt
 rambler/ipv6_merged.txt
 rostelecom/ipv6_merged.txt

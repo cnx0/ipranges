@@ -237,16 +237,31 @@ jobs:
             echo "No failed downloaders — no alert needed."
             exit 0
           fi
+          # surface failures as run annotations — visible even when the issue
+          # tracker is unavailable (forks have issues disabled by default)
+          while IFS= read -r f; do
+            echo "::warning::downloader failed: $f"
+          done < /tmp/dl_failed_list
           {
             echo "$(date -u +%F): **$failed** downloader(s) failed:"
             echo ""
             sed 's/.*/- `&`/' /tmp/dl_failed_list
           } > /tmp/alert_body.md
+          # best-effort issue alert: a failing gh call (e.g. issues disabled on
+          # the fork) must NOT turn the whole job red — the data was already
+          # committed and the failures are annotated above
           issue=$(gh issue list --state open --search "Downloader failures in:title" --json number --jq '.[0].number' 2>/dev/null || true)
           if [ -n "$issue" ]; then
-            gh issue comment "$issue" --body-file /tmp/alert_body.md
-            echo "Commented on existing issue #$issue"
+            if gh issue comment "$issue" --body-file /tmp/alert_body.md; then
+              echo "Commented on existing issue #$issue"
+            else
+              echo "::warning::could not comment on issue #$issue"
+            fi
           else
-            gh issue create --title "Downloader failures" --body-file /tmp/alert_body.md
-            echo "Created a new alert issue"
+            if gh issue create --title "Downloader failures" --body-file /tmp/alert_body.md; then
+              echo "Created a new alert issue"
+            else
+              echo "::warning::could not create alert issue (issues disabled on this repo?). Body was:"
+              cat /tmp/alert_body.md
+            fi
           fi

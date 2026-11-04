@@ -40,7 +40,6 @@ oracle/ipv4_merged.txt
 ovh/ipv4_merged.txt
 ozonru/ipv4_merged.txt
 pia/ipv4_merged.txt
-protonvpn/ipv4_merged.txt
 qrator/ipv4_merged.txt
 rambler/ipv4_merged.txt
 rostelecom/ipv4_merged.txt

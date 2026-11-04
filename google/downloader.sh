@@ -24,47 +24,61 @@ curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://www.gstatic.com/i
 curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors https://developers.google.com/search/apis/ipranges/googlebot.json > /tmp/googlebot.json
 
 # get from netblocks
-txt="$(dig TXT _netblocks.google.com +short @8.8.8.8)"
+# dig is wrapped: a flaky UDP query to 8.8.8.8 must not abort the whole
+# downloader under set -e; retries smooth out transient packet loss
+dig_txt() {
+  dig +time=5 +tries=2 TXT "$1" +short @8.8.8.8 2>/dev/null || true
+}
+
+: > /tmp/google-netblocks.txt
+txt="$(dig_txt _netblocks.google.com)"
 idx=2
 while [[ -n "${txt}" ]]; do
-  echo "${txt}" | tr '[:space:]+' "\n" | grep ':' | cut -d: -f2- >> /tmp/google-netblocks.txt
-  txt="$(dig TXT _netblocks${idx}.google.com +short @8.8.8.8)"
+  echo "${txt}" | tr '[:space:]+' "\n" | grep ':' | cut -d: -f2- >> /tmp/google-netblocks.txt || true
+  txt="$(dig_txt _netblocks${idx}.google.com)"
   ((idx++))
 done
 
 # get from other netblocks
 get_dns_spf() {
-   dig @8.8.8.8 +short txt "$1" |
+   dig +time=5 +tries=2 @8.8.8.8 +short txt "$1" 2>/dev/null |
    tr ' ' '\n' |
    while read entry; do
       case "$entry" in
              ip4:*) echo "${entry#*:}" ;;
              ip6:*) echo "${entry#*:}" ;;
-         include:*) get_dns_spf "${entry#*:}" ;;
+         include:*) get_dns_spf "${entry#*:}" || true ;;
       esac
    done
 }
 
 #get_dns_spf "_cloud-netblocks.googleusercontent.com" >> /tmp/google-netblocks.txt
-get_dns_spf "_spf.google.com" >> /tmp/google-netblocks.txt
+get_dns_spf "_spf.google.com" >> /tmp/google-netblocks.txt || true
 
 # IRR as-set as a safety net for announcements not covered above
 get_as_set 'AS-GOOGLE' >> /tmp/google-netblocks.txt || echo 'failed'
 
 
-# save ipv4
-grep -v ':' /tmp/goog.txt > /tmp/google-ipv4.txt
+# save ipv4 (|| true: an empty supplementary file must not abort the run)
+grep -v ':' /tmp/goog.txt > /tmp/google-ipv4.txt || true
 #jq '.prefixes[] | [.ipv4Prefix][] | select(. != null)' -r /tmp/cloud.json >> /tmp/google-ipv4.txt
 jq '.prefixes[] | [.ipv4Prefix][] | select(. != null)' -r /tmp/googlebot.json >> /tmp/google-ipv4.txt
-grep -v ':' /tmp/google-netblocks.txt >> /tmp/google-ipv4.txt
+grep -v ':' /tmp/google-netblocks.txt >> /tmp/google-ipv4.txt || true
 curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/antonme/ipnames/master/resolve-google.txt >> /tmp/google-ipv4.txt || echo 'failed'
 curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/antonme/ipnames/master/ext-resolve-google.txt >> /tmp/google-ipv4.txt || echo 'failed'
 
 # save ipv6
-grep ':' /tmp/goog.txt > /tmp/google-ipv6.txt
+grep ':' /tmp/goog.txt > /tmp/google-ipv6.txt || true
 #jq '.prefixes[] | [.ipv6Prefix][] | select(. != null)' -r /tmp/cloud.json >> /tmp/google-ipv6.txt
 jq '.prefixes[] | [.ipv6Prefix][] | select(. != null)' -r /tmp/googlebot.json >> /tmp/google-ipv6.txt
-grep ':' /tmp/google-netblocks.txt >> /tmp/google-ipv6.txt
+grep ':' /tmp/google-netblocks.txt >> /tmp/google-ipv6.txt || true
+
+# the primary sources (goog.txt, googlebot.json) are fetched with curl -f above,
+# so an empty result here means real degradation: abort and keep the old list
+if [ ! -s /tmp/google-ipv4.txt ]; then
+  echo "google: collected no ipv4 ranges, keeping previous list" >&2
+  exit 1
+fi
 
 
 # sort & uniq
