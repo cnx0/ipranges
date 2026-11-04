@@ -3,25 +3,8 @@
 set -euo pipefail
 set -x
 
-
-# get from Autonomous System
-get_maintained() {
-    whois -h whois.ripe.net -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.radb.net -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-    whois -h rr.ntt.net -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.rogerstelecom.net -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.bgp.net.br -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-}
-# get from Autonomous System. Each IRR is queried independently with `|| true` so a
-# server that is down — or simply has no route object for the ASN — neither aborts the
-# function (under `set -e`/`pipefail`) nor hides the other registries.
-get_routes() {
-    whois -h riswhois.ripe.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h whois.radb.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h rr.ntt.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h whois.rogerstelecom.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h whois.bgp.net.br -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-}
+# shared IRR helpers: get_routes / get_maintained / get_maintained_inetnum
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils/lib-irr.sh"
 
 get_maintained 'ROSTELECOM-MNT' | grep -v 'route-set' | grep "/" > /tmp/rostelecom.txt || echo 'failed'
 
@@ -41,7 +24,6 @@ grep -v ':' /tmp/rostelecom-clean.txt > /tmp/rostelecom-ipv4.txt
 # save ipv6
 grep ':' /tmp/rostelecom-clean.txt > /tmp/rostelecom-ipv6.txt
 
-
 # sort & uniq
-sort -h /tmp/rostelecom-ipv4.txt | uniq > rostelecom/ipv4.txt
-sort -h /tmp/rostelecom-ipv6.txt | uniq > rostelecom/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/rostelecom-ipv4.txt > rostelecom/ipv4.txt
+sort -u /tmp/rostelecom-ipv6.txt > rostelecom/ipv6.txt

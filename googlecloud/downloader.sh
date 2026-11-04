@@ -12,13 +12,13 @@ set -x
 
 
 # get from public ranges
-curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://www.gstatic.com/ipranges/cloud.json > /tmp/cloud.json
+curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://www.gstatic.com/ipranges/cloud.json > /tmp/googlecloud.json
 
 # get from netblocks
 txt="$(dig TXT _netblocks.google.com +short @8.8.8.8)"
 idx=2
 while [[ -n "${txt}" ]]; do
-  echo "${txt}" | tr '[:space:]+' "\n" | grep ':' | cut -d: -f2- >> /tmp/netblocks.txt
+  echo "${txt}" | tr '[:space:]+' "\n" | grep ':' | cut -d: -f2- >> /tmp/googlecloud-netblocks.txt
   txt="$(dig TXT _netblocks${idx}.google.com +short @8.8.8.8)"
   ((idx++))
 done
@@ -36,18 +36,18 @@ get_dns_spf() {
    done
 }
 
-get_dns_spf "_cloud-netblocks.googleusercontent.com" >> /tmp/netblocks.txt
+get_dns_spf "_cloud-netblocks.googleusercontent.com" >> /tmp/googlecloud-netblocks.txt
 
 
 # save ipv4
-jq '.prefixes[] | [.ipv4Prefix][] | select(. != null)' -r /tmp/cloud.json > /tmp/googlecloud-ipv4.txt
-grep -v ':' /tmp/netblocks.txt >> /tmp/googlecloud-ipv4.txt
+jq '.prefixes[] | [.ipv4Prefix][] | select(. != null)' -r /tmp/googlecloud.json > /tmp/googlecloud-ipv4.txt
+grep -v ':' /tmp/googlecloud-netblocks.txt >> /tmp/googlecloud-ipv4.txt
 
 # save ipv6
-jq '.prefixes[] | [.ipv6Prefix][] | select(. != null)' -r /tmp/cloud.json > /tmp/googlecloud-ipv6.txt
-grep ':' /tmp/netblocks.txt >> /tmp/googlecloud-ipv6.txt
+jq '.prefixes[] | [.ipv6Prefix][] | select(. != null)' -r /tmp/googlecloud.json > /tmp/googlecloud-ipv6.txt
+grep ':' /tmp/googlecloud-netblocks.txt >> /tmp/googlecloud-ipv6.txt
 
 
 # sort & uniq
-sort -h /tmp/googlecloud-ipv4.txt | uniq > googlecloud/ipv4.txt
-sort -h /tmp/googlecloud-ipv6.txt | uniq > googlecloud/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/googlecloud-ipv4.txt > googlecloud/ipv4.txt
+sort -u /tmp/googlecloud-ipv6.txt > googlecloud/ipv6.txt

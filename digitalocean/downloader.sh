@@ -18,5 +18,5 @@ grep ':' /tmp/digitalocean.txt > /tmp/digitalocean-ipv6.txt
 
 
 # sort & uniq
-sort -h /tmp/digitalocean-ipv4.txt | uniq > digitalocean/ipv4.txt
-sort -h /tmp/digitalocean-ipv6.txt | uniq > digitalocean/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/digitalocean-ipv4.txt > digitalocean/ipv4.txt
+sort -u /tmp/digitalocean-ipv6.txt > digitalocean/ipv6.txt

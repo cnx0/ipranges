@@ -8,6 +8,6 @@ curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://download.microsof
 cat /tmp/microsoft.txt | grep -v ":" > /tmp/microsoft-ipv4.txt
 cat /tmp/microsoft.txt | grep ":" > /tmp/microsoft-ipv6.txt
 
-sort -h /tmp/microsoft-ipv4.txt | uniq > microsoft/ipv4.txt
-sort -h /tmp/microsoft-ipv6.txt | uniq > microsoft/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/microsoft-ipv4.txt > microsoft/ipv4.txt
+sort -u /tmp/microsoft-ipv6.txt > microsoft/ipv6.txt
 

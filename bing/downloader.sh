@@ -23,4 +23,4 @@ curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercon
 
 
 # sort & uniq
-sort -h /tmp/bing-ipv4.txt | uniq > bing/ipv4.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/bing-ipv4.txt > bing/ipv4.txt

@@ -16,5 +16,5 @@ curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://api.mullvad.net/a
 
 
 # sort & uniq
-sort -h /tmp/mullvad-ipv4.txt | uniq > mullvad/ipv4.txt
-sort -h /tmp/mullvad-ipv6.txt | uniq > mullvad/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/mullvad-ipv4.txt > mullvad/ipv4.txt
+sort -u /tmp/mullvad-ipv6.txt > mullvad/ipv6.txt

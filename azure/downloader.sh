@@ -10,7 +10,9 @@ set -x
 
 # get from public ranges
 download_and_parse() {
-    URL="$(curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://www.microsoft.com/en-us/download/confirmation.aspx?id=${1} | grep -o '<a href=['"'"'"][^"'"'"']*['"'"'"]' | grep ServiceTags_ | head -1 | sed -e 's/^<a href=["'"'"']//' -e 's/["'"'"']$//')"
+    # details.aspx: confirmation.aspx now 302-redirects and the sovereign-cloud
+    # pages (US Gov/Germany/China) no longer expose the link there at all
+    URL="$(curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors https://www.microsoft.com/en-us/download/details.aspx?id=${1} | grep -o '<a href=['"'"'"][^"'"'"']*['"'"'"]' | grep ServiceTags_ | head -1 | sed -e 's/^<a href=["'"'"']//' -e 's/["'"'"']$//')"
     curl -fsS --connect-timeout 60 --retry 3 --retry-delay 15 "${URL}" > /tmp/azure.json
     jq '.values[] | [.properties] | .[].addressPrefixes[] | select(. != null)' -r /tmp/azure.json > /tmp/azure-all.txt
 
@@ -32,5 +34,5 @@ download_and_parse "57062"
 
 
 # sort & uniq
-sort -h /tmp/azure-ipv4.txt | uniq > azure/ipv4.txt
-sort -h /tmp/azure-ipv6.txt | uniq > azure/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/azure-ipv4.txt > azure/ipv4.txt
+sort -u /tmp/azure-ipv6.txt > azure/ipv6.txt

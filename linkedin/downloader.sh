@@ -3,17 +3,8 @@
 set -euo pipefail
 set -x
 
-
-# get from Autonomous System. Each IRR is queried independently with `|| true` so a
-# server that is down — or simply has no route object for the ASN — neither aborts the
-# function (under `set -e`/`pipefail`) nor hides the other registries.
-get_routes() {
-    whois -h riswhois.ripe.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h whois.radb.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h rr.ntt.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h whois.rogerstelecom.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h whois.bgp.net.br -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-}
+# shared IRR helpers: get_routes / get_maintained / get_maintained_inetnum
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils/lib-irr.sh"
 
 # LinkedIn is a Microsoft subsidiary but announces its own ASNs and address space,
 # distinct from the microsoft/ list. Only these three are actually routed; LinkedIn's
@@ -28,7 +19,6 @@ grep -v ':' /tmp/linkedin.txt > /tmp/linkedin-ipv4.txt
 # save ipv6
 grep ':' /tmp/linkedin.txt > /tmp/linkedin-ipv6.txt
 
-
 # sort & uniq
-sort -h /tmp/linkedin-ipv4.txt | uniq > linkedin/ipv4.txt
-sort -h /tmp/linkedin-ipv6.txt | uniq > linkedin/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/linkedin-ipv4.txt > linkedin/ipv4.txt
+sort -u /tmp/linkedin-ipv6.txt > linkedin/ipv6.txt

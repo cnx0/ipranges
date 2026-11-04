@@ -8,20 +8,11 @@
 set -euo pipefail
 set -x
 
-
-# get from Autonomous System. Each IRR is queried independently with `|| true` so a
-# server that is down — or simply has no route object for the ASN — neither aborts the
-# function (under `set -e`/`pipefail`) nor hides the other registries.
-get_routes() {
-    whois -h riswhois.ripe.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h whois.radb.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h rr.ntt.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h whois.rogerstelecom.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-    whois -h whois.bgp.net.br -- "-i origin $1" | rg '^route' | awk '{ print $2; }' || true
-}
+# shared IRR helpers: get_routes / get_maintained / get_maintained_inetnum
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils/lib-irr.sh"
 
 python utils/arin-org.py AL-3 > /tmp/alibaba.txt
-whois -h whois.apnic.net "TAOBAO"| rg inetnum|sort -h|uniq|awk '{print $2" "$4}'|python utils/ipcalc.py >>/tmp/alibaba.txt
+whois -h whois.apnic.net "TAOBAO"| rg inetnum|sort -u|awk '{print $2" "$4}'|python utils/ipcalc.py >>/tmp/alibaba.txt
 whois -h whois.apnic.net "TAOBAO"| grep inet6num| awk '{print $2}' >> /tmp/alibaba.txt
 
 # The ARIN AL-3 org + APNIC TAOBAO handle above cover only part of Alibaba. Add the
@@ -41,7 +32,6 @@ grep -v ':' /tmp/alibaba-clean.txt > /tmp/alibaba-ipv4.txt
 # save ipv6
 grep ':' /tmp/alibaba-clean.txt > /tmp/alibaba-ipv6.txt
 
-
 # sort & uniq
-sort -h /tmp/alibaba-ipv4.txt | uniq > alibaba/ipv4.txt
-sort -h /tmp/alibaba-ipv6.txt | uniq > alibaba/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/alibaba-ipv4.txt > alibaba/ipv4.txt
+sort -u /tmp/alibaba-ipv6.txt > alibaba/ipv6.txt

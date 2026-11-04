@@ -16,5 +16,5 @@ curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercon
 
 
 # sort & uniq
-sort -h /tmp/youtube-ipv4.txt | uniq > youtube/ipv4.txt
-# sort -h /tmp/youtube-ipv6.txt | uniq > youtube/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/youtube-ipv4.txt > youtube/ipv4.txt
+# sort -u /tmp/youtube-ipv6.txt > youtube/ipv6.txt

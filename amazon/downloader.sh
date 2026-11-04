@@ -18,5 +18,5 @@ jq '.ipv6_prefixes[] | [.ipv6_prefix][] | select(. != null)' -r /tmp/amazon.json
 
 
 # sort & uniq
-sort -h /tmp/amazon-ipv4.txt | uniq > amazon/ipv4.txt
-sort -h /tmp/amazon-ipv6.txt | uniq > amazon/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/amazon-ipv4.txt > amazon/ipv4.txt
+sort -u /tmp/amazon-ipv6.txt > amazon/ipv6.txt

@@ -1,61 +1,73 @@
-# Import requests for making API calls
+#!/usr/bin/env python3
+"""Resolve an ARIN organization handle to its registered networks via Whois-RWS.
+
+Usage: arin-org.py <org-handle>
+
+Prints one CIDR per line on stdout. Diagnostics go to stderr, and any failure
+exits non-zero — callers redirect stdout into IP lists, so error text must
+never leak there (previously an HTTP error was printed to stdout with exit 0
+and ended up inside the service's raw list).
+"""
+import sys
+import time
+import xml.etree.ElementTree as ET
+
+import netaddr
 import requests
 
-# Import netaddr for manipulating CIDRs
-import netaddr
+BASE_URL = "https://whois.arin.net/rest"
+HEADERS = {"Accept": "application/xml"}
+RETRIES = 3
+TIMEOUT = 30
 
-# Import sys for accessing command line arguments
-import sys
 
-# Check if an org_handle was provided as a command line argument
-if len(sys.argv) > 1:
-    # Get the org_handle from the first argument
-    org_handle = sys.argv[1]
-else:
-    # Print an error message and exit if no org_handle was given
-    print("Please provide an organization handle as a command line argument.")
+def fetch(org_handle):
+    url = f"{BASE_URL}/org/{org_handle}/nets"
+    last_err = "unknown error"
+    for attempt in range(1, RETRIES + 1):
+        try:
+            response = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        except requests.RequestException as exc:
+            last_err = str(exc)
+        else:
+            if response.status_code == 200:
+                return response.text
+            last_err = f"HTTP {response.status_code}"
+        if attempt < RETRIES:
+            time.sleep(2 ** attempt)
+    print(f"arin-org: failed to fetch {org_handle}: {last_err}", file=sys.stderr)
     sys.exit(1)
 
-# Define the base URL for ARIN's Whois-RWS API
-base_url = "https://whois.arin.net/rest/"
 
-# Define the headers for requesting XML data
-headers = {"Accept": "application/xml"}
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: arin-org.py <org-handle>", file=sys.stderr)
+        sys.exit(2)
 
-# Make a GET request to get the networks for the organization
-response = requests.get(base_url + "org/" + org_handle + "/nets", headers=headers)
+    org_handle = sys.argv[1]
+    xml_data = fetch(org_handle)
 
-# Check if the response status code is 200 (OK)
-if response.status_code == 200:
-    # Parse the XML data from the response
-    xml_data = response.text
+    try:
+        root = ET.fromstring(xml_data)
+    except ET.ParseError as exc:
+        print(f"arin-org: malformed XML for {org_handle}: {exc}", file=sys.stderr)
+        sys.exit(1)
 
-    # Initialize an empty list for storing CIDRs
+    # netRef elements carry startAddress/endAddress attributes (not namespaced).
     cidrs = []
+    for elem in root.iter():
+        start, end = elem.get("startAddress"), elem.get("endAddress")
+        if not (start and end):
+            continue
+        ip_range = netaddr.IPRange(netaddr.IPAddress(start), netaddr.IPAddress(end))
+        cidrs.extend(str(cidr) for cidr in ip_range.cidrs())
 
-    # Loop through each network element in the XML data
-    for net in xml_data.split("<netRef ")[1:]:
-        # Extract the startAddress and endAddress attributes
-        start_address = net.split('startAddress="')[1].split('"')[0]
-        end_address = net.split('endAddress="')[1].split('"')[0]
+    if not cidrs:
+        print(f"arin-org: no networks found for {org_handle}", file=sys.stderr)
+        sys.exit(1)
 
-        # Convert them to IP addresses using netaddr.IPAddress()
-        start_ip = netaddr.IPAddress(start_address)
-        end_ip = netaddr.IPAddress(end_address)
+    print("\n".join(cidrs))
 
-        # Create an IP range using netaddr.IPRange()
-        ip_range = netaddr.IPRange(start_ip, end_ip)
 
-        # Convert it to a list of CIDRs using cidrs() method
-        ip_cidrs = ip_range.cidrs()
-
-        # Append each CIDR to the cidrs list
-        for cidr in ip_cidrs:
-            cidrs.append(cidr)
-
-    # Print out the number and list of CIDRs
-    print("\n".join(str(cidr) for cidr in cidrs))
-
-else:
-    # Print out an error message if something went wrong
-    print(f"Something went wrong. Status code: {response.status_code}")
+if __name__ == "__main__":
+    main()

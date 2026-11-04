@@ -3,12 +3,8 @@
 set -euo pipefail
 set -x
 
-get_routes() {
-    whois -h riswhois.ripe.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.radb.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h rr.ntt.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.rogerstelecom.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-}
+# shared IRR helpers: get_routes / get_maintained / get_maintained_inetnum
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils/lib-irr.sh"
 
 get_routes 'AS399358' > /tmp/claude.txt || echo 'failed'
 
@@ -18,7 +14,6 @@ grep -v ':' /tmp/claude.txt > /tmp/claude-ipv4.txt
 # save ipv6
 grep ':' /tmp/claude.txt > /tmp/claude-ipv6.txt
 
-
 # sort & uniq
-sort -h /tmp/claude-ipv4.txt | uniq > claude/ipv4.txt
-sort -h /tmp/claude-ipv6.txt | uniq > claude/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/claude-ipv4.txt > claude/ipv4.txt
+sort -u /tmp/claude-ipv6.txt > claude/ipv6.txt

@@ -3,22 +3,10 @@
 set -euo pipefail
 set -x
 
+# shared IRR helpers: get_routes / get_maintained / get_maintained_inetnum
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils/lib-irr.sh"
 
-# get from Autonomous System
-get_maintained() {
-    whois -h whois.ripe.net -- "-i mnt-by $1" > /tmp/ripe.txt
-    cat /tmp/ripe.txt | rg '^route' | awk '{ print $2; }'
-    whois -h whois.radb.net -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-    whois -h rr.ntt.net -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-	rg inetnum /tmp/ripe.txt |sort -h|uniq|awk '{print $2" "$4}'|python utils/ipcalc.py
-}
-
-
-
-
-get_maintained 'MNT-AVITO' > /tmp/avito.txt || echo 'failed'
-
-
+get_maintained_inetnum 'MNT-AVITO' > /tmp/avito.txt || echo 'failed'
 
 # save ipv4
 grep -v ':' /tmp/avito.txt > /tmp/avito-ipv4.txt
@@ -26,7 +14,6 @@ grep -v ':' /tmp/avito.txt > /tmp/avito-ipv4.txt
 # save ipv6
 grep ':' /tmp/avito.txt > /tmp/avito-ipv6.txt
 
-
 # sort & uniq
-sort -h /tmp/avito-ipv4.txt | uniq > avito/ipv4.txt
-sort -h /tmp/avito-ipv6.txt | uniq > avito/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/avito-ipv4.txt > avito/ipv4.txt
+sort -u /tmp/avito-ipv6.txt > avito/ipv6.txt

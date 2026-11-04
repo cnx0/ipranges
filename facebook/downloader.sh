@@ -8,15 +8,8 @@
 set -euo pipefail
 set -x
 
-
-# get from Autonomous System
-get_routes() {
-    whois -h riswhois.ripe.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.radb.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h rr.ntt.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.rogerstelecom.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.bgp.net.br -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-}
+# shared IRR helpers: get_routes / get_maintained / get_maintained_inetnum
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils/lib-irr.sh"
 
 get_routes 'AS32934' > /tmp/facebook.txt || echo 'failed'
 get_routes 'AS54115' >> /tmp/facebook.txt || echo 'failed'
@@ -31,7 +24,6 @@ grep -v ':' /tmp/facebook.txt | rg '[0-9]+' > /tmp/facebook-ipv4.txt
 # save ipv6
 grep ':' /tmp/facebook.txt |rg '[0-9]+' > /tmp/facebook-ipv6.txt
 
-
 # sort & uniq
-sort -h /tmp/facebook-ipv4.txt | uniq > facebook/ipv4.txt
-sort -h /tmp/facebook-ipv6.txt | uniq > facebook/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/facebook-ipv4.txt > facebook/ipv4.txt
+sort -u /tmp/facebook-ipv6.txt > facebook/ipv6.txt

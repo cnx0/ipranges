@@ -18,4 +18,4 @@ jq '.regions[] | [.cidrs][] | .[].cidr | select(. != null)' -r /tmp/oracle.json 
 
 
 # sort & uniq
-sort -h /tmp/oracle-ipv4.txt | uniq > oracle/ipv4.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/oracle-ipv4.txt > oracle/ipv4.txt

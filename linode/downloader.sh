@@ -18,5 +18,5 @@ grep ':' /tmp/linode.txt > /tmp/linode-ipv6.txt
 
 
 # sort & uniq
-sort -h /tmp/linode-ipv4.txt | uniq > linode/ipv4.txt
-sort -h /tmp/linode-ipv6.txt | uniq > linode/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/linode-ipv4.txt > linode/ipv4.txt
+sort -u /tmp/linode-ipv6.txt > linode/ipv6.txt

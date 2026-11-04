@@ -8,18 +8,10 @@
 set -euo pipefail
 set -x
 
-
-# get from Autonomous System
-get_maintained() {
-    whois -h whois.ripe.net -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.radb.net -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-    whois -h rr.ntt.net -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.rogerstelecom.net -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.bgp.net.br -- "-i mnt-by $1" | rg '^route' | awk '{ print $2; }'
-}
+# shared IRR helpers: get_routes / get_maintained / get_maintained_inetnum
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils/lib-irr.sh"
 
 get_maintained 'VKCOMPANY-MNT' > /tmp/vkontakte.txt || echo 'failed'
-
 
 # save ipv4
 grep -v ':' /tmp/vkontakte.txt > /tmp/vkontakte-ipv4.txt
@@ -27,7 +19,6 @@ grep -v ':' /tmp/vkontakte.txt > /tmp/vkontakte-ipv4.txt
 # save ipv6
 grep ':' /tmp/vkontakte.txt > /tmp/vkontakte-ipv6.txt
 
-
 # sort & uniq
-sort -h /tmp/vkontakte-ipv4.txt | uniq > vkontakte/ipv4.txt
-sort -h /tmp/vkontakte-ipv6.txt | uniq > vkontakte/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/vkontakte-ipv4.txt > vkontakte/ipv4.txt
+sort -u /tmp/vkontakte-ipv6.txt > vkontakte/ipv6.txt

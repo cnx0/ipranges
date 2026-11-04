@@ -1,28 +1,18 @@
 #!/bin/bash
 
-
 set -euo pipefail
 set -x
 
-
-# get from Autonomous System
-get_routes() {
-    whois -h riswhois.ripe.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.radb.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h rr.ntt.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.rogerstelecom.net -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-    whois -h whois.bgp.net.br -- "-i origin $1" | rg '^route' | awk '{ print $2; }'
-}
+# shared IRR helpers: get_routes / get_maintained / get_maintained_inetnum
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils/lib-irr.sh"
 
 get_routes 'AS15224' > /tmp/adobe.txt || echo 'failed'
 get_routes 'ADOBES-Z' >> /tmp/adobe.txt || echo 'failed'
 
-python utils/arin-org.py AS15224 >> /tmp/adobe.txt
-
+python utils/arin-org.py AS >> /tmp/adobe.txt
 
 curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/antonme/ipnames/master/resolve-adobe.txt >> /tmp/adobe.txt || echo 'failed'
 curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/antonme/ipnames/master/ext-resolve-adobe.txt >> /tmp/adobe.txt || echo 'failed'
-
 
 # save ipv4
 grep -v ':' /tmp/adobe.txt > /tmp/adobe-ipv4.txt
@@ -30,8 +20,6 @@ grep -v ':' /tmp/adobe.txt > /tmp/adobe-ipv4.txt
 # save ipv6
 grep ':' /tmp/adobe.txt > /tmp/adobe-ipv6.txt
 
-
-
 # sort & uniq
-sort -h /tmp/adobe-ipv4.txt | uniq > adobe/ipv4.txt
-sort -h /tmp/adobe-ipv6.txt | uniq > adobe/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/adobe-ipv4.txt > adobe/ipv4.txt
+sort -u /tmp/adobe-ipv6.txt > adobe/ipv6.txt

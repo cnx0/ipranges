@@ -9,6 +9,9 @@
 set -euo pipefail
 set -x
 
+# shared IRR helpers (get_as_set used below)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utils/lib-irr.sh"
+
 
 
 # get from public ranges
@@ -17,13 +20,14 @@ curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://www.gstatic.com/i
 
 # Public GoogleBot IP ranges
 # From: https://developers.google.com/search/docs/advanced/crawling/verifying-googlebot
-curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://developers.google.com/search/apis/ipranges/googlebot.json > /tmp/googlebot.json
+# (-L: the old /search/apis/ipranges/ path now 301-redirects to /static/crawling/ipranges/)
+curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors https://developers.google.com/search/apis/ipranges/googlebot.json > /tmp/googlebot.json
 
 # get from netblocks
 txt="$(dig TXT _netblocks.google.com +short @8.8.8.8)"
 idx=2
 while [[ -n "${txt}" ]]; do
-  echo "${txt}" | tr '[:space:]+' "\n" | grep ':' | cut -d: -f2- >> /tmp/netblocks.txt
+  echo "${txt}" | tr '[:space:]+' "\n" | grep ':' | cut -d: -f2- >> /tmp/google-netblocks.txt
   txt="$(dig TXT _netblocks${idx}.google.com +short @8.8.8.8)"
   ((idx++))
 done
@@ -41,15 +45,18 @@ get_dns_spf() {
    done
 }
 
-#get_dns_spf "_cloud-netblocks.googleusercontent.com" >> /tmp/netblocks.txt
-get_dns_spf "_spf.google.com" >> /tmp/netblocks.txt
+#get_dns_spf "_cloud-netblocks.googleusercontent.com" >> /tmp/google-netblocks.txt
+get_dns_spf "_spf.google.com" >> /tmp/google-netblocks.txt
+
+# IRR as-set as a safety net for announcements not covered above
+get_as_set 'AS-GOOGLE' >> /tmp/google-netblocks.txt || echo 'failed'
 
 
 # save ipv4
 grep -v ':' /tmp/goog.txt > /tmp/google-ipv4.txt
 #jq '.prefixes[] | [.ipv4Prefix][] | select(. != null)' -r /tmp/cloud.json >> /tmp/google-ipv4.txt
 jq '.prefixes[] | [.ipv4Prefix][] | select(. != null)' -r /tmp/googlebot.json >> /tmp/google-ipv4.txt
-grep -v ':' /tmp/netblocks.txt >> /tmp/google-ipv4.txt
+grep -v ':' /tmp/google-netblocks.txt >> /tmp/google-ipv4.txt
 curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/antonme/ipnames/master/resolve-google.txt >> /tmp/google-ipv4.txt || echo 'failed'
 curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/antonme/ipnames/master/ext-resolve-google.txt >> /tmp/google-ipv4.txt || echo 'failed'
 
@@ -57,9 +64,9 @@ curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercon
 grep ':' /tmp/goog.txt > /tmp/google-ipv6.txt
 #jq '.prefixes[] | [.ipv6Prefix][] | select(. != null)' -r /tmp/cloud.json >> /tmp/google-ipv6.txt
 jq '.prefixes[] | [.ipv6Prefix][] | select(. != null)' -r /tmp/googlebot.json >> /tmp/google-ipv6.txt
-grep ':' /tmp/netblocks.txt >> /tmp/google-ipv6.txt
+grep ':' /tmp/google-netblocks.txt >> /tmp/google-ipv6.txt
 
 
 # sort & uniq
-sort -h /tmp/google-ipv4.txt | uniq > google/ipv4.txt
-sort -h /tmp/google-ipv6.txt | uniq > google/ipv6.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/google-ipv4.txt > google/ipv4.txt
+sort -u /tmp/google-ipv6.txt > google/ipv6.txt

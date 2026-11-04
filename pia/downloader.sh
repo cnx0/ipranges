@@ -10,7 +10,7 @@ set -x
 
 
 
-curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/Lars-/PIA-servers/refs/heads/master/export.csv| grep "\."|awk -F','  '{print $1}'| sort -h|uniq >/tmp/pia.txt
+curl -fsS --retry 3 --retry-delay 5 --retry-all-errors https://raw.githubusercontent.com/Lars-/PIA-servers/refs/heads/master/export.csv| grep "\."|awk -F','  '{print $1}'| sort -u >/tmp/pia.txt
 
 
 # save ipv4
@@ -19,4 +19,4 @@ grep -v ':' /tmp/pia.txt > /tmp/pia-ipv4.txt
 
 
 # sort & uniq
-sort -h /tmp/pia-ipv4.txt | uniq > pia/ipv4.txt
+sort -t. -k1,1n -k2,2n -k3,3n -k4,4n -u /tmp/pia-ipv4.txt > pia/ipv4.txt

@@ -5,22 +5,34 @@ on:
   schedule:
     - cron: '8 3 * * *' 
 
+# never overlap two runs: a scheduled run while the previous one is still
+# pushing would race on git push
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # push the updated lists
+  issues: write     # alert on failing downloaders
+
 jobs:
   updater:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Prepare packages
-        run: sudo apt-get install -y whois jq ripgrep parallel
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y whois jq ripgrep parallel dnsutils bgpq4
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
 
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('utils/requirements.txt') }}
@@ -32,28 +44,31 @@ jobs:
         run: |
           pip install -r utils/requirements.txt
 
+      - name: Fetch RPKI ROA snapshot
+        run: |
+          # Used by get_routes (utils/lib-irr.sh) to drop RPKI-INVALID prefixes.
+          # If the snapshot is unavailable, downloaders skip RPKI filtering.
+          curl -fsS --retry 3 --retry-delay 5 --retry-all-errors \
+            https://rpki.cloudflare.com/rpki.json -o /tmp/rpki.json \
+            || echo "::warning::ROA snapshot unavailable, RPKI filtering will be skipped"
+
 
       - name: Download IPs
         run: |
-          # Run every downloader, capturing exit codes. A single failing source must
-          # NOT abort the run (so we drop `set -e`); failures are tallied and reported.
+          # Downloaders run in parallel (-j 6 keeps the load on IRR mirrors polite).
+          # A single failing source must NOT abort the run; failures are tallied
+          # from the GNU parallel joblog and reported.
           set -uo pipefail
-          total=0
-          failed=0
-          : > /tmp/dl_failed_list
-          while IFS= read -r d; do
-            total=$((total + 1))
-            echo "::group::$d"
-            if bash "$d"; then
-              echo "OK: $d"
-            else
-              rc=$?
-              failed=$((failed + 1))
-              echo "FAILED (exit $rc): $d"
-              echo "$d" >> /tmp/dl_failed_list
-            fi
-            echo "::endgroup::"
-          done < <(find . -name downloader.sh | sort -h)
+          find . -name downloader.sh | sort > /tmp/dl_list
+          parallel --will-cite -j 6 --joblog /tmp/dl_joblog --group bash {} < /tmp/dl_list || true
+          if [ ! -s /tmp/dl_joblog ]; then
+            echo "::error::parallel produced no joblog — the download step itself is broken"
+            exit 1
+          fi
+          total=$(wc -l < /tmp/dl_list | tr -d ' ')
+          # joblog is tab-separated; $7 = exit code, last field = command
+          awk -F'\t' 'NR>1 && $7 != 0 {sub(/^bash /, "", $NF); print $NF}' /tmp/dl_joblog | sort > /tmp/dl_failed_list
+          failed=$(wc -l < /tmp/dl_failed_list | tr -d ' ')
           echo "$total"  > /tmp/dl_total
           echo "$failed" > /tmp/dl_failed
           {
@@ -70,16 +85,36 @@ jobs:
 
       - name: Merge ipv4 Ranges
         run: |
-          set -euo pipefail
-          set -x
-          find . -name ipv4.txt| sort -h | parallel --will-cite -j 1 echo "Merging '{}'"';'python utils/merge.py --source={} '|'  sort -h '>' {.}_merged.txt
-
+          # Per-file tolerance: merge.py exits non-zero when >5% of a source list is
+          # unparseable (and prints nothing). Such a file keeps its previously committed
+          # merged list (restored below) instead of aborting the whole run.
+          set -uo pipefail
+          failed=0
+          while IFS= read -r f; do
+            out="${f%.txt}_merged.txt"
+            echo "Merging $f -> $out"
+            if ! python utils/merge.py --source="$f" > "$out"; then
+              failed=$((failed + 1))
+              echo "::warning file=$f::merge failed (>5% invalid lines), keeping previous merged list"
+              git checkout HEAD -- "$out" 2>/dev/null || rm -f "$out"
+            fi
+          done < <(find . -name ipv4.txt | sort)
+          echo "- ipv4 merge failures (previous list kept): **$failed**" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Merge ipv6 Ranges
         run: |
-          set -euo pipefail
-          set -x
-          find . -name ipv6.txt| sort -h | parallel --will-cite -j 1 echo "Merging '{}'"';'python utils/merge.py --source={} '|' sort -h '>' {.}_merged.txt
+          set -uo pipefail
+          failed=0
+          while IFS= read -r f; do
+            out="${f%.txt}_merged.txt"
+            echo "Merging $f -> $out"
+            if ! python utils/merge.py --source="$f" > "$out"; then
+              failed=$((failed + 1))
+              echo "::warning file=$f::merge failed (>5% invalid lines), keeping previous merged list"
+              git checkout HEAD -- "$out" 2>/dev/null || rm -f "$out"
+            fi
+          done < <(find . -name ipv6.txt | sort)
+          echo "- ipv6 merge failures (previous list kept): **$failed**" >> "$GITHUB_STEP_SUMMARY"
 
 
       - name: Sanity floor
@@ -90,6 +125,7 @@ jobs:
           set -uo pipefail
           reverts=0
           : > /tmp/reverted_list
+          : > /tmp/growth_list
           while IFS= read -r merged; do
             path="${merged#./}"
             git cat-file -e "HEAD:$path" 2>/dev/null || continue
@@ -102,8 +138,14 @@ jobs:
               git cat-file -e "HEAD:$raw" 2>/dev/null && git checkout HEAD -- "$raw" || true
               reverts=$((reverts + 1))
               echo "| \`$path\` | $old | $new |" >> /tmp/reverted_list
+            elif [ "$old" -gt 0 ] && [ "$new" -gt $((old * 3)) ]; then
+              # mirror guard: a >3x growth spurt usually means a noisy upstream
+              # (e.g. an as-set suddenly pulling transit routes). Warn only —
+              # legitimate growth happens too, so we don't revert.
+              echo "GROWTH: $path ($old -> $new lines, >3x)"
+              echo "| \`$path\` | $old | $new |" >> /tmp/growth_list
             fi
-          done < <(find . -name '*_merged.txt' | sort -h)
+          done < <(find . -name '*_merged.txt' | sort)
           echo "$reverts" > /tmp/reverts
           {
             echo ""
@@ -116,14 +158,22 @@ jobs:
             else
               echo "Sanity floor: no lists reverted ✅"
             fi
+            if [ -s /tmp/growth_list ]; then
+              echo ""
+              echo "### 📈 Unusual growth (>3x in one run) — worth a look"
+              echo ""
+              echo "| file | previous | new |"
+              echo "|------|---------:|----:|"
+              cat /tmp/growth_list
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Update service lists
         run: |
           set -euo pipefail
           set -x
-          find . -name ipv4_merged.txt -not -empty | sed 's|^\./||' | sort -h > ipv4-services.txt
-          find . -name ipv6_merged.txt -not -empty | sed 's|^\./||' | sort -h > ipv6-services.txt
+          find . -name ipv4_merged.txt -not -empty | sed 's|^\./||' | sort > ipv4-services.txt
+          find . -name ipv6_merged.txt -not -empty | sed 's|^\./||' | sort > ipv6-services.txt
 
       - name: Commit files
         env:
@@ -131,7 +181,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          git remote add github "https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git remote get-url github >/dev/null 2>&1 || \
+            git remote add github "https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git pull github ${GITHUB_REF} --ff-only
 
           # Get name & email from 1st commit
@@ -144,7 +195,9 @@ jobs:
             echo 'No changes'
             exit 0
           fi
-          git commit -m "Auto-update ip ranges"
+          # put the diffstat into the commit body so size anomalies are
+          # visible from the git log without opening the diff
+          git commit -m "Auto-update ip ranges" -m "$(git diff --cached --stat | tail -n 1)"
 
           # push changes
           git push github HEAD:${GITHUB_REF}
@@ -169,3 +222,31 @@ jobs:
             exit 1
           fi
           echo "No systemic outage — job stays green."
+
+      - name: Alert on failing downloaders
+        # scheduled runs only: manual runs are someone actively watching anyway
+        if: always() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create (or comment on) an issue listing the failed downloaders, so a
+          # degrading source gets noticed instead of disappearing in step logs.
+          set -uo pipefail
+          failed=$(cat /tmp/dl_failed 2>/dev/null || echo 0)
+          if [ "$failed" -eq 0 ]; then
+            echo "No failed downloaders — no alert needed."
+            exit 0
+          fi
+          {
+            echo "$(date -u +%F): **$failed** downloader(s) failed:"
+            echo ""
+            sed 's/.*/- `&`/' /tmp/dl_failed_list
+          } > /tmp/alert_body.md
+          issue=$(gh issue list --state open --search "Downloader failures in:title" --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body-file /tmp/alert_body.md
+            echo "Commented on existing issue #$issue"
+          else
+            gh issue create --title "Downloader failures" --body-file /tmp/alert_body.md
+            echo "Created a new alert issue"
+          fi
