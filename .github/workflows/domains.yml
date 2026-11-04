@@ -29,6 +29,11 @@ jobs:
           chmod +x ./sing-box
 
       - name: Build domain lists
+        env:
+          AGH_DNS_TARGET: "172.19.0.2:53"
+          AGH_DEFAULT_UPSTREAMS: |
+            77.88.8.8
+            1.1.1.1
         run: |
           set -euo pipefail
           SING_BOX_BIN="$PWD/sing-box" bash domains/build.sh 2>&1 | tee /tmp/build.log

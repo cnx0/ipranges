@@ -4,9 +4,11 @@
 # Переменные окружения:
 #   SING_BOX_BIN   — путь к бинарю sing-box/amnezia-box для компиляции .srs
 #                    (если не задан — .srs не собирается)
-#   AGH_DNS_TARGET — например "10.10.3.5:5354": дополнительно генерирует
+#   AGH_DNS_TARGET — например "172.19.0.2:53": дополнительно генерирует
 #                    dist/adguardhome-upstreams.txt для per-domain upstream AGH
-
+#   AGH_DEFAULT_UPSTREAMS — обычные upstream AGH, по одному в строке. Обязательны
+#                    при AGH_DNS_TARGET, потому что upstream_dns_file заменяет
+#                    собой список upstream_dns из AdGuardHome.yaml.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -45,6 +47,13 @@ if [[ -n "${SING_BOX_BIN:-}" ]]; then
 fi
 
 if [[ -n "${AGH_DNS_TARGET:-}" ]]; then
-  sed "s/.*/[\/&\/]${AGH_DNS_TARGET//\//\\/}/" dist/vpn-domains.lst > dist/adguardhome-upstreams.txt
+  if [[ -z "${AGH_DEFAULT_UPSTREAMS:-}" ]]; then
+    echo "ERROR: AGH_DEFAULT_UPSTREAMS is required when AGH_DNS_TARGET is set" >&2
+    exit 1
+  fi
+  {
+    printf '%s\n' "$AGH_DEFAULT_UPSTREAMS" | sed '/^[[:space:]]*$/d'
+    sed "s/.*/[\/&\/]${AGH_DNS_TARGET//\//\\/}/" dist/vpn-domains.lst
+  } > dist/adguardhome-upstreams.txt
   echo "OK: dist/adguardhome-upstreams.txt"
 fi
