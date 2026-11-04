@@ -15,6 +15,7 @@ cloudflare/ipv6_merged.txt
 cogent/ipv6_merged.txt
 constant/ipv6_merged.txt
 digitalocean/ipv6_merged.txt
+discord/ipv6_merged.txt
 edgecast/ipv6_merged.txt
 expressvpn/ipv6_merged.txt
 facebook/ipv6_merged.txt

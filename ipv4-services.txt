@@ -17,6 +17,7 @@ cogent/ipv4_merged.txt
 constant/ipv4_merged.txt
 corbina/ipv4_merged.txt
 digitalocean/ipv4_merged.txt
+discord/ipv4_merged.txt
 edgecast/ipv4_merged.txt
 expressvpn/ipv4_merged.txt
 facebook/ipv4_merged.txt
