@@ -7,7 +7,7 @@ I maintain this for my personal use on my home router mostly.
 Amazon (AWS), Alibaba Cloud, Azure (Microsoft), Backblaze, Digital Ocean, Google Cloud, Hetzner, Hostinger, Linode, MTS Cloud, Oracle, OVHcloud, Vultr (Constant), Yandex Cloud, Akamai, CacheFly, Cloudflare, EdgeCast, Fastly, Imperva, Qrator
 
 ### Search Engines, Social Media, and Communication Platforms
-Bing (Microsoft), Google, Yahoo, Yandex, Facebook, LinkedIn, TikTok, Telegram, Twitter (X.com), Vkontakte, YouTube, Kinopub, Rambler
+Bing (Microsoft), Google, Yahoo, Yandex, Facebook, LinkedIn, TikTok, Telegram, Twitter (X.com), Vkontakte, YouTube, Kinopub, Rambler, Discord (voice/media infrastructure; the web app is behind Cloudflare)
 
 ### E-commerce, Technology Companies, and Online Services
 Alibaba, Amazon, Avito, Ozon.ru, Adobe, Apple, Microsoft, Sberbank, Hugging Face, GitHub, Vercel
