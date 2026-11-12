@@ -27,6 +27,7 @@ googlecloud/ipv6_merged.txt
 hetzner/ipv6_merged.txt
 hostinger/ipv6_merged.txt
 imperva/ipv6_merged.txt
+kimi/ipv6_merged.txt
 kinopub/ipv6_merged.txt
 linkedin/ipv6_merged.txt
 linode/ipv6_merged.txt
@@ -43,6 +44,7 @@ rugov/ipv6_merged.txt
 sber/ipv6_merged.txt
 surfshark/ipv6_merged.txt
 telegram/ipv6_merged.txt
+tencent/ipv6_merged.txt
 tiktok/ipv6_merged.txt
 twitter/ipv6_merged.txt
 vkontakte/ipv6_merged.txt

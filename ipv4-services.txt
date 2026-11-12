@@ -11,6 +11,7 @@ backblaze/ipv4_merged.txt
 beeline/ipv4_merged.txt
 bing/ipv4_merged.txt
 cachefly/ipv4_merged.txt
+chnroutes/ipv4_merged.txt
 claude/ipv4_merged.txt
 cloudflare-full/ipv4_merged.txt
 cloudflare/ipv4_merged.txt
@@ -30,6 +31,7 @@ hetzner/ipv4_merged.txt
 hostinger/ipv4_merged.txt
 huggingface/ipv4_merged.txt
 imperva/ipv4_merged.txt
+kimi/ipv4_merged.txt
 kinopub/ipv4_merged.txt
 linkedin/ipv4_merged.txt
 linode/ipv4_merged.txt
@@ -48,6 +50,7 @@ rugov/ipv4_merged.txt
 sber/ipv4_merged.txt
 surfshark/ipv4_merged.txt
 telegram/ipv4_merged.txt
+tencent/ipv4_merged.txt
 tiktok/ipv4_merged.txt
 twitter/ipv4_merged.txt
 vercel/ipv4_merged.txt
